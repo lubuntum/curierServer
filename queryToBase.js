@@ -2,6 +2,7 @@ const sqlite3 = require('sqlite3').verbose()
 const sessionKeysGen = require('randomstring')
 const NOT_VALIDATE_ERR = "Not validate"
 const NOT_SUCH_EMPLOYEE = "Employee doesnt exists"
+const FOOD_BY_ORDER_ERR = "Error iccured while search for food"
 const UPDATE_SUCCESS = "Data updated"
 
 const db = new sqlite3.Database('./database/database.sqlite', (err)=>{
@@ -45,13 +46,13 @@ const getEmployeeByLogin = async (request)=>{
 }
 const getOrdersByStatusAndEmployeeId = (request)=>{
     return new Promise(function(resolve, reject){
-        validateRequest(request)
+        validateRequest(request.body.sessionKey)
         .then((isValid)=>{
             console.log(isValid)
             if(!isValid) reject(NOT_VALIDATE_ERR)
             console.log("next")
             const {id, status} = request.body
-            const query =  `SELECT "Order".date, "Order".result_price, Clients.name, Clients.second_name, Clients.patronymic, Clients.phone, Status.status_str
+            const query =  `SELECT "Order".id, "Order".date, "Order".result_price, Clients.name, Clients.second_name, Clients.patronymic, Clients.phone, Status.status_str
             FROM "Order"
             INNER JOIN Status ON "Order".status_id = Status.id
             INNER JOIN Clients ON Clients.id = "Order".clients_id
@@ -78,6 +79,45 @@ const logoutEmployee = (request)=>{
         } )
     })
 }
+
+const getFoodByOrder = (request)=>{
+    return new Promise((resolve, reject)=>{
+        console.log(request.query.sessionKey)
+        validateRequest(request.query.sessionKey)
+            .then(isValid=>{
+                console.log((isValid))
+                if(!isValid) reject(NOT_VALIDATE_ERR)
+                const {orderId} = request.query
+                const query = `SELECT food.name, food.price from "Order" 
+                                INNER JOIN Order_food ON "Order".id = Order_food.order_id
+                                INNER JOIN Food ON Order_food.food_id = food.id
+                                WHERE "Order".id = ?`
+                db.all(query, [orderId], (err, foods)=>{
+                    if(err) reject(FOOD_BY_ORDER_ERR)
+                    else resolve(foods)
+                })
+            }).catch(err=>{
+                reject(err)
+            })
+    })
+}
+const changeOrderStatus = (request)=>{
+    return new Promise((resolve, reject)=>{
+        validateRequest(request.body.sessionKey)
+        .then(isValid=>{
+            if(!isValid) reject(NOT_VALIDATE_ERR)
+            const{orderId, status} = request.body;
+            const query = `UPDATE "Order" SET status_id = (SELECT id from status WHERE status_str = ?) WHERE id = ?`
+            db.run(query, [status, orderId], (err=>{
+                if(err) reject("Can't update status")
+                else resolve(UPDATE_SUCCESS)
+            }))
+        })
+            
+        
+    })
+    
+}
 /*Сделать что бы пользователь мог обновлять статус товаров и можно на logout*/
 
 /**
@@ -86,21 +126,19 @@ const logoutEmployee = (request)=>{
  * @returns 
  * функция для провеки зарегистрирован ли пользователь
  */
-const validateRequest = async (request)=>{ //test session key = R8zm0GDv4QINd1T2aoqUbQzkDJ9PhbG9
-    const sessionKey = request.body.sessionKey
+const validateRequest = async (sessionKey)=>{ //test session key = R8zm0GDv4QINd1T2aoqUbQzkDJ9PhbG9
     const query = "SELECT session_key from Employee where session_key = ?"
     return new Promise((resolve, reject)=>{
         db.get(query, [sessionKey], (err, key)=>{
-            if(err || key === undefined) reject(false )
+            console.log(`sessionKey = ${sessionKey}`)
+            console.log(`key = ${key}`)
+            if(err || key === undefined) reject(false)
             else resolve(key['session_key'] === sessionKey)
         })
     })
     
 }
-/*Начать писать API для мобилки, 
-1) сделать окно авторизации и допуска к приложению
-2) после регистрации сохранять все данные employee ФИО, login, sessionKey локально в SharedPreferences в мобилке, а также sessionKey
-3) реализовать запросы к API, получение всех Order для работника
-4)
-*/
-module.exports = {db, getEmployeeByLogin, getOrdersByStatusAndEmployeeId, logoutEmployee, UPDATE_SUCCESS, NOT_SUCH_EMPLOYEE, NOT_VALIDATE_ERR}
+
+
+
+module.exports = {db, changeOrderStatus,getFoodByOrder, getEmployeeByLogin, getOrdersByStatusAndEmployeeId, logoutEmployee, UPDATE_SUCCESS, NOT_SUCH_EMPLOYEE, NOT_VALIDATE_ERR}

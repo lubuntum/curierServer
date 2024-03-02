@@ -70,19 +70,27 @@ app.post('/logout', (req, res)=>{
         console.log(err)
     })
 })
-   
-    /*
-   db.getOrdersByStatusAndEmployeeId(req)
-    .then(data=>{
-            console.log(data)
-            res.status(200).json({orders : data})
-    })
-    .catch(err=>{
-        res.status(500).send(err)
-        console.log(err)
-    })
-*/
 
+app.get('/orders/food', (req,res)=>{
+    console.log("get food by order")
+    db.getFoodByOrder(req)
+        .then(data =>{
+            console.log(data)
+            res.status(200).json({foods:data})
+        })
+        .catch(err=>{
+            res.status(400).send(err)
+        })
+})
+app.put('/order/status-change',(req,res)=>{
+    db.changeOrderStatus(req)
+        .then(result =>{
+            res.status(200).send()
+        })
+        .catch(err=>{
+            res.status(500).send(err)
+        })
+})
 
 app.listen(PORT, ADDRESS, ()=>{
     console.log(`server start at ${PORT}, hostname ${ADDRESS}`)
