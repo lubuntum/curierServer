@@ -14,8 +14,8 @@ const db = new sqlite3.Database('./database/database.sqlite', (err)=>{
 // работа с хэш => crypto.createHash('md5').update('123').digest('hex')
 const getEmployeeByLogin = async (request)=>{
     return new Promise(function(resolve, reject){
-        const {pass, login} = request.body
-        console.log(`pass = ${pass}, login = ${login}`)
+        const {pass, login, last_auth} = request.body
+        console.log(`pass = ${pass}, login = ${login}, auth = ${last_auth}`)
         //const login = 'User1'
         //const pass = '202cb962ac59075b964b07152d234b70'
         const query = 'SELECT * FROM Employee WHERE login = ?'
@@ -26,13 +26,14 @@ const getEmployeeByLogin = async (request)=>{
             console.log(`Employee = ${employee}, eP = ${employee.password}, pass = ${pass}, valid=${employee.password === pass}`)
             if(employee && employee.password === pass){
                 const sessionKey = sessionKeysGen.generate({length:32, charset:'alphanumeric'})
-                const updateEmployeeQuery = 'UPDATE Employee SET session_key = ? WHERE login = ?'
-                db.run(updateEmployeeQuery, [sessionKey, login], (err)=>{
+                const updateEmployeeQuery = 'UPDATE Employee SET session_key = ?, last_auth = ? WHERE login = ?'
+                db.run(updateEmployeeQuery, [sessionKey, last_auth, login], (err)=>{
                     if(err) reject(err)
                     else resolve({id: employee.id,
                                     name:employee.name, 
                                     secondName:employee.second_name,
-                                    patronymic: employee.patronymic, 
+                                    patronymic: employee.patronymic,
+                                    lastAuth: last_auth, 
                                     sessionKey: sessionKey})
                 })
                 //update session to employee in db
